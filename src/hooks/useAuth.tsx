@@ -6,6 +6,7 @@ interface User {
   id: number;
   email: string;
   first_name?: string;
+  role: 'user' | 'admin';
   latitude: number | null;
   longitude: number | null;
   has_power: boolean | null;

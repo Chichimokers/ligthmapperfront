@@ -11,6 +11,9 @@ const DEFAULT_LOCATION: [number, number] = [23.1136, -82.3666];
 const POLLING_INTERVAL = 5000;
 
 interface LightPoint {
+  id: number;
+  email: string;
+  role: 'user' | 'admin';
   latitude: number;
   longitude: number;
   has_power: boolean;
@@ -70,12 +73,15 @@ const MapPage = () => {
 
   const loadLights = useCallback(async () => {
     try {
-      const response = await api.get('/api/v1/users/lights/');
+      const endpoint = user?.role === 'admin' 
+        ? '/api/v1/users/admin/lights/' 
+        : '/api/v1/users/lights/';
+      const response = await api.get(endpoint);
       setLights(response.data);
     } catch (error) {
       console.error('Error cargando luces:', error);
     }
-  }, []);
+  }, [user]);
 
   const refreshLights = async () => {
     setRefreshLoading(true);
