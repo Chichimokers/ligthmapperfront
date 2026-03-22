@@ -2,6 +2,11 @@ version: "3.9"
 
 services:
   lightmapper:
+    build:
+      context: .
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
     image: lightmapper:latest
     container_name: lightmapper-app
     ports:
