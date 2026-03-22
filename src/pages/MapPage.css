@@ -518,6 +518,13 @@
   border-bottom: none;
 }
 
+.sidebar-section-zones {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .sidebar-section h3 {
   margin: 0 0 12px 0;
   font-size: 1rem;
@@ -549,93 +556,134 @@
   font-size: 0.8rem;
 }
 
-.zone-list {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.zone-card {
-  background: var(--light);
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 12px;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.zone-card:hover {
-  transform: scale(1.02);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.zone-card:last-child {
-  margin-bottom: 0;
-}
-
-.zone-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.zone-header strong {
-  font-size: 0.95rem;
-}
-
-.zone-badge {
-  font-size: 1rem;
-}
-
-.zone-badge.danger { color: var(--danger); }
-.zone-badge.warning { color: orange; }
-.zone-badge.success { color: var(--success); }
-
-.zone-location {
-  display: block;
-  color: var(--gray);
-  font-size: 0.75rem;
-  margin-bottom: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.zone-stats {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 8px;
-}
-
-.zone-stats span {
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
 .stat-with { color: var(--success); }
 .stat-without { color: var(--danger); }
 
-.zone-bar {
-  height: 6px;
-  background: #e5e5e5;
-  border-radius: 3px;
-  overflow: hidden;
+.zone-hierarchy {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.province-item {
+  margin-bottom: 8px;
+}
+
+.province-header {
+  background: var(--primary);
+  color: white;
+  padding: 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.province-header:hover {
+  background: #2563eb;
+}
+
+.expand-icon {
+  font-size: 0.7rem;
+  width: 16px;
+  text-align: center;
+}
+
+.expand-icon.small {
+  font-size: 0.65rem;
+  width: 12px;
+}
+
+.province-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.province-stats,
+.muni-stats,
+.nbr-stats {
+  display: flex;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.municipalities-list {
+  margin-top: 4px;
+  margin-left: 8px;
+}
+
+.municipality-item {
   margin-bottom: 4px;
 }
 
-.zone-bar-fill {
+.municipality-header {
+  background: var(--light);
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.municipality-header:hover {
+  background: #e5e5e5;
+}
+
+.municipality-name {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.neighborhoods-list {
+  margin-top: 4px;
+  margin-left: 20px;
+}
+
+.neighborhood-item {
+  background: #f8f8f8;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.neighborhood-item:hover {
+  background: #eee;
+}
+
+.neighborhood-name {
+  flex: 1;
+  font-size: 0.85rem;
+  min-width: 100px;
+}
+
+.mini-bar-container {
+  width: 100%;
+  height: 4px;
+  background: #ddd;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.mini-bar {
   height: 100%;
   transition: width 0.3s;
 }
 
-.zone-bar-fill.danger { background: var(--danger); }
-.zone-bar-fill.warning { background: orange; }
-.zone-bar-fill.success { background: var(--success); }
-
-.zone-users-count {
-  color: var(--gray);
-  font-size: 0.75rem;
-}
+.mini-bar.success { background: var(--success); }
+.mini-bar.danger { background: var(--danger); }
 
 .user-list {
   max-height: 250px;

@@ -7,6 +7,10 @@ export interface GeocodingResult {
   suburb?: string;
   district?: string;
   city?: string;
+  town?: string;
+  village?: string;
+  county?: string;
+  municipality?: string;
   state?: string;
   country?: string;
   displayName: string;
@@ -38,11 +42,15 @@ const formatLocationName = (data: {
   city?: string;
   town?: string;
   village?: string;
+  county?: string;
   state?: string;
 }): { shortName: string; fullName: string } => {
   const zoneName = data.suburb || data.city_district || data.town || data.village || data.city || 'Unknown';
   
   let fullName = zoneName;
+  if (data.county) {
+    fullName += `, ${data.county}`;
+  }
   if (data.state) {
     fullName += `, ${data.state}`;
   }
@@ -101,7 +109,11 @@ export const reverseGeocode = async (lat: number, lon: number): Promise<Geocodin
       road: data.address?.road,
       suburb: data.address?.suburb,
       district: data.address?.city_district,
-      city: data.address?.city || data.address?.town || data.address?.village,
+      city: data.address?.city,
+      town: data.address?.town,
+      village: data.address?.village,
+      county: data.address?.county,
+      municipality: data.address?.municipality || data.address?.county,
       state: data.address?.state,
       country: data.address?.country,
       displayName: location.fullName

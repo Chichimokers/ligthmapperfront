@@ -22,15 +22,27 @@ interface LightPoint {
   last_power_update: string;
 }
 
-interface ZoneStats {
-  zoneKey: string;
-  zoneName: string;
-  fullLocation: string;
-  total: number;
+interface NeighborhoodZone {
+  name: string;
+  users: LightPoint[];
   withPower: number;
   withoutPower: number;
-  percentageWithoutPower: number;
-  users: LightPoint[];
+  avgLat: number;
+  avgLon: number;
+}
+
+interface MunicipalityZone {
+  name: string;
+  neighborhoods: NeighborhoodZone[];
+  totalUsers: number;
+  totalWithoutPower: number;
+}
+
+interface ProvinceZone {
+  name: string;
+  municipalities: MunicipalityZone[];
+  totalUsers: number;
+  totalWithoutPower: number;
   avgLat: number;
   avgLon: number;
 }
@@ -87,7 +99,9 @@ const MapPage = () => {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [refreshLoading, setRefreshLoading] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
-  const [zoneStats, setZoneStats] = useState<ZoneStats[]>([]);
+  const [hierarchicalZones, setHierarchicalZones] = useState<ProvinceZone[]>([]);
+  const [expandedProvinces, setExpandedProvinces] = useState<Set<string>>(new Set());
+  const [expandedMunicipalities, setExpandedMunicipalities] = useState<Set<string>>(new Set());
   const [geocodingLoading, setGeocodingLoading] = useState(false);
   const [geocodingProgress, setGeocodingProgress] = useState({ current: 0, total: 0 });
 
@@ -109,19 +123,18 @@ const MapPage = () => {
     setRefreshLoading(false);
   };
 
-  const buildZoneStats = useCallback(async (lightsData: LightPoint[]) => {
-    console.log('🔍 buildZoneStats called', { 
+  const buildHierarchicalStats = useCallback(async (lightsData: LightPoint[]) => {
+    console.log('🔍 buildHierarchicalStats called', { 
       userRole: user?.role, 
       lightsCount: lightsData.length,
       isAdmin: user?.role === 'admin'
     });
     
     if (user?.role !== 'admin' || lightsData.length === 0) {
-      console.log('❌ buildZoneStats early return', { 
-        roleCheck: user?.role !== 'admin', 
-        emptyLights: lightsData.length === 0 
-      });
-      setZoneStats([]);
+      console.log('❌ buildHierarchicalStats early return');
+      setHierarchicalZones([]);
+      setExpandedProvinces(new Set());
+      setExpandedMunicipalities(new Set());
       return;
     }
 
@@ -129,19 +142,19 @@ const MapPage = () => {
     setGeocodingProgress({ current: 0, total: lightsData.length });
 
     try {
-      const uniqueLocations = new Map<string, LightPoint[]>();
+      const uniqueLocations = new Map<string, { users: LightPoint[]; lat: number; lon: number }>();
       
       for (const light of lightsData) {
-        const key = `${light.latitude.toFixed(4)}_${light.longitude.toFixed(4)}`;
+        const key = `${light.latitude.toFixed(5)}_${light.longitude.toFixed(5)}`;
         if (!uniqueLocations.has(key)) {
-          uniqueLocations.set(key, []);
+          uniqueLocations.set(key, { users: [], lat: light.latitude, lon: light.longitude });
         }
-        uniqueLocations.get(key)!.push(light);
+        uniqueLocations.get(key)!.users.push(light);
       }
 
-      const locationCoords = Array.from(uniqueLocations.entries()).map(([key, users]) => ({
-        lat: users[0].latitude,
-        lon: users[0].longitude,
+      const locationCoords = Array.from(uniqueLocations.entries()).map(([key, data]) => ({
+        lat: data.lat,
+        lon: data.lon,
         id: key
       }));
 
@@ -150,72 +163,121 @@ const MapPage = () => {
         (current, total) => setGeocodingProgress({ current, total })
       );
 
-      const zoneMap = new Map<string, {
-        users: LightPoint[];
-        totalPower: number;
-        noPower: number;
-        avgLat: number;
-        avgLon: number;
-        zoneName: string;
-        fullLocation: string;
-      }>();
+      const provinceMap = new Map<string, ProvinceZone>();
+      const muniMap = new Map<string, MunicipalityZone>();
+      const nbrMap = new Map<string, NeighborhoodZone>();
 
       for (const light of lightsData) {
-        const key = `${light.latitude.toFixed(4)}_${light.longitude.toFixed(4)}`;
+        const key = `${light.latitude.toFixed(5)}_${light.longitude.toFixed(5)}`;
         const geocoded = geocodedResults.get(key);
         
-        const zoneKey = geocoded?.suburb || geocoded?.district || geocoded?.city || 'Otros';
-        const fullLocation = geocoded?.displayName || zoneKey;
+        const province = geocoded?.state || geocoded?.city || 'Cuba';
+        const municipality = geocoded?.county || geocoded?.municipality || 'Municipio Desconocido';
+        const neighborhood = geocoded?.suburb || geocoded?.district || geocoded?.town || geocoded?.village || 'Barrio Desconocido';
 
-        if (!zoneMap.has(zoneKey)) {
-          zoneMap.set(zoneKey, {
-            users: [],
-            totalPower: 0,
-            noPower: 0,
+        const provinceKey = province;
+        const muniKey = `${province}__${municipality}`;
+        const nbrKey = `${muniKey}__${neighborhood}`;
+
+        if (!provinceMap.has(provinceKey)) {
+          provinceMap.set(provinceKey, {
+            name: provinceKey,
+            municipalities: [],
+            totalUsers: 0,
+            totalWithoutPower: 0,
             avgLat: 0,
-            avgLon: 0,
-            zoneName: zoneKey,
-            fullLocation: fullLocation
+            avgLon: 0
           });
         }
 
-        const zone = zoneMap.get(zoneKey)!;
-        zone.users.push(light);
-        if (light.has_power) {
-          zone.totalPower++;
-        } else {
-          zone.noPower++;
+        if (!muniMap.has(muniKey)) {
+          muniMap.set(muniKey, {
+            name: municipality,
+            neighborhoods: [],
+            totalUsers: 0,
+            totalWithoutPower: 0
+          });
+          provinceMap.get(provinceKey)!.municipalities.push(muniMap.get(muniKey)!);
         }
-        zone.avgLat += light.latitude;
-        zone.avgLon += light.longitude;
+
+        if (!nbrMap.has(nbrKey)) {
+          nbrMap.set(nbrKey, {
+            name: neighborhood,
+            users: [],
+            withPower: 0,
+            withoutPower: 0,
+            avgLat: 0,
+            avgLon: 0
+          });
+          muniMap.get(muniKey)!.neighborhoods.push(nbrMap.get(nbrKey)!);
+        }
+
+        const provinceZone = provinceMap.get(provinceKey)!;
+        const muniZone = muniMap.get(muniKey)!;
+        const nbrZone = nbrMap.get(nbrKey)!;
+
+        nbrZone.users.push(light);
+        if (light.has_power) {
+          nbrZone.withPower++;
+          provinceZone.totalUsers++;
+          muniZone.totalUsers++;
+        } else {
+          nbrZone.withoutPower++;
+          provinceZone.totalUsers++;
+          provinceZone.totalWithoutPower++;
+          muniZone.totalUsers++;
+          muniZone.totalWithoutPower++;
+        }
+        nbrZone.avgLat += light.latitude;
+        nbrZone.avgLon += light.longitude;
+        provinceZone.avgLat += light.latitude;
+        provinceZone.avgLon += light.longitude;
       }
 
-      const stats: ZoneStats[] = Array.from(zoneMap.entries()).map(([key, zone]) => {
-        const count = zone.users.length;
-        return {
-          zoneKey: key,
-          zoneName: zone.zoneName,
-          fullLocation: zone.fullLocation,
-          total: count,
-          withPower: zone.totalPower,
-          withoutPower: zone.noPower,
-          percentageWithoutPower: Math.round((zone.noPower / count) * 100),
-          users: zone.users,
-          avgLat: zone.avgLat / count,
-          avgLon: zone.avgLon / count
-        };
-      });
+      const provinces: ProvinceZone[] = Array.from(provinceMap.values()).map(p => ({
+        ...p,
+        avgLat: p.avgLat / p.totalUsers,
+        avgLon: p.avgLon / p.totalUsers,
+        municipalities: p.municipalities.map(m => ({
+          ...m,
+          neighborhoods: m.neighborhoods.map(n => ({
+            ...n,
+            avgLat: n.users.length > 0 ? n.avgLat / n.users.length : 0,
+            avgLon: n.users.length > 0 ? n.avgLon / n.users.length : 0
+          }))
+        }))
+      }));
 
-      stats.sort((a, b) => {
-        if (b.percentageWithoutPower !== a.percentageWithoutPower) {
-          return b.percentageWithoutPower - a.percentageWithoutPower;
+      provinces.sort((a, b) => {
+        if (b.totalWithoutPower !== a.totalWithoutPower) {
+          return b.totalWithoutPower - a.totalWithoutPower;
         }
-        return b.total - a.total;
+        return b.totalUsers - a.totalUsers;
       });
 
-      setZoneStats(stats);
+      provinces.forEach(p => {
+        p.municipalities.sort((a, b) => b.totalWithoutPower - a.totalWithoutPower);
+        p.municipalities.forEach(m => {
+          m.neighborhoods.sort((a, b) => b.withoutPower - a.withoutPower);
+        });
+      });
+
+      setHierarchicalZones(provinces);
+      
+      const allProvinceNames = new Set(provinces.map(p => p.name));
+      setExpandedProvinces(allProvinceNames);
+      
+      const allMuniNames = new Set<string>();
+      provinces.forEach(p => {
+        p.municipalities.forEach(m => {
+          allMuniNames.add(`${p.name}__${m.name}`);
+        });
+      });
+      setExpandedMunicipalities(allMuniNames);
+
+      console.log('✅ buildHierarchicalStats complete:', provinces.length, 'provinces');
     } catch (error) {
-      console.error('Error building zone stats:', error);
+      console.error('Error building hierarchical stats:', error);
     } finally {
       setGeocodingLoading(false);
     }
@@ -232,6 +294,31 @@ const MapPage = () => {
     setTimeout(() => setMessage(null), 3000);
   }, []);
 
+  const toggleProvince = useCallback((provinceName: string) => {
+    setExpandedProvinces(prev => {
+      const next = new Set(prev);
+      if (next.has(provinceName)) {
+        next.delete(provinceName);
+      } else {
+        next.add(provinceName);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleMunicipality = useCallback((provinceName: string, muniName: string) => {
+    const key = `${provinceName}__${muniName}`;
+    setExpandedMunicipalities(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
   // Polling para actualizar puntos en tiempo real
   useEffect(() => {
     loadLights();
@@ -243,10 +330,10 @@ const MapPage = () => {
   useEffect(() => {
     console.log('🔄 useEffect triggered', { showSidebar, userRole: user?.role, lightsCount: lights.length });
     if (showSidebar && user?.role === 'admin' && lights.length > 0) {
-      console.log('✅ Calling buildZoneStats');
-      buildZoneStats(lights);
+      console.log('✅ Calling buildHierarchicalStats');
+      buildHierarchicalStats(lights);
     }
-  }, [showSidebar, lights, user, buildZoneStats]);
+  }, [showSidebar, lights, user, buildHierarchicalStats]);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -494,8 +581,8 @@ const MapPage = () => {
               <button className="sidebar-close" onClick={() => setShowSidebar(false)}>✕</button>
             </div>
             
-            <div className="sidebar-section">
-              <h3>📍 Estadísticas por Zona</h3>
+            <div className="sidebar-section sidebar-section-zones">
+              <h3>📍 Zonas por Provincia</h3>
               
               {geocodingLoading ? (
                 <div className="geocoding-loading">
@@ -503,32 +590,73 @@ const MapPage = () => {
                   <p>Cargando ubicaciones...</p>
                   <small>{geocodingProgress.current}/{geocodingProgress.total}</small>
                 </div>
-              ) : zoneStats.length > 0 ? (
-                <div className="zone-list">
-                  {zoneStats.map((zone, index) => (
-                    <div 
-                      key={index} 
-                      className="zone-card"
-                      onClick={() => zoomToZone(zone.users)}
-                    >
-                      <div className="zone-header">
-                        <strong>{zone.zoneName}</strong>
-                        <span className={`zone-badge ${zone.percentageWithoutPower > 70 ? 'danger' : zone.percentageWithoutPower > 40 ? 'warning' : 'success'}`}>
-                          {zone.percentageWithoutPower > 70 ? '⚠️' : zone.percentageWithoutPower > 40 ? '⚡' : '✓'}
+              ) : hierarchicalZones.length > 0 ? (
+                <div className="zone-hierarchy">
+                  {hierarchicalZones.map((province) => (
+                    <div key={province.name} className="province-item">
+                      <div 
+                        className="province-header"
+                        onClick={() => toggleProvince(province.name)}
+                      >
+                        <span className="expand-icon">
+                          {expandedProvinces.has(province.name) ? '▼' : '▶'}
+                        </span>
+                        <span className="province-name">{province.name}</span>
+                        <span className="province-stats">
+                          <span className="stat-with">💡{province.totalUsers - province.totalWithoutPower}</span>
+                          <span className="stat-without">🔌{province.totalWithoutPower}</span>
                         </span>
                       </div>
-                      <small className="zone-location">{zone.fullLocation}</small>
-                      <div className="zone-stats">
-                        <span className="stat-with">💡 {zone.withPower}</span>
-                        <span className="stat-without">🔌 {zone.withoutPower}</span>
-                      </div>
-                      <div className="zone-bar">
-                        <div 
-                          className={`zone-bar-fill ${zone.percentageWithoutPower > 70 ? 'danger' : zone.percentageWithoutPower > 40 ? 'warning' : 'success'}`}
-                          style={{ width: `${zone.percentageWithoutPower}%` }}
-                        />
-                      </div>
-                      <small className="zone-users-count">{zone.total} usuarios</small>
+                      
+                      {expandedProvinces.has(province.name) && (
+                        <div className="municipalities-list">
+                          {province.municipalities.map((muni) => {
+                            const muniKey = `${province.name}__${muni.name}`;
+                            return (
+                              <div key={muni.name} className="municipality-item">
+                                <div 
+                                  className="municipality-header"
+                                  onClick={() => toggleMunicipality(province.name, muni.name)}
+                                >
+                                  <span className="expand-icon small">
+                                    {expandedMunicipalities.has(muniKey) ? '▼' : '▶'}
+                                  </span>
+                                  <span className="municipality-name">{muni.name}</span>
+                                  <span className="muni-stats">
+                                    <span className="stat-with">💡{muni.totalUsers - muni.totalWithoutPower}</span>
+                                    <span className="stat-without">🔌{muni.totalWithoutPower}</span>
+                                  </span>
+                                </div>
+                                
+                                {expandedMunicipalities.has(muniKey) && (
+                                  <div className="neighborhoods-list">
+                                    {muni.neighborhoods.map((nbr) => (
+                                      <div 
+                                        key={nbr.name}
+                                        className="neighborhood-item"
+                                        onClick={() => zoomToZone(nbr.users)}
+                                        title="Clic para ver en mapa"
+                                      >
+                                        <span className="neighborhood-name">{nbr.name}</span>
+                                        <span className="nbr-stats">
+                                          <span className="stat-with">💡{nbr.withPower}</span>
+                                          <span className="stat-without">🔌{nbr.withoutPower}</span>
+                                        </span>
+                                        <div className="mini-bar-container">
+                                          <div 
+                                            className={`mini-bar ${nbr.withoutPower > nbr.withPower ? 'danger' : 'success'}`}
+                                            style={{ width: `${nbr.users.length > 0 ? (nbr.withoutPower / nbr.users.length) * 100 : 0}%` }}
+                                          />
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
