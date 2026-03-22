@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents } from 'react-leaflet';
 import { useAuth } from '../hooks/useAuth';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import api from '../services/api';
@@ -26,6 +26,22 @@ const formatTimeAgo = (dateString: string): string => {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours} h`;
   return `${Math.floor(hours / 24)} días`;
+};
+
+interface MapClickHandlerProps {
+  onMapClick: (lat: number, lng: number) => void;
+  enabled: boolean;
+}
+
+const MapClickHandler = ({ onMapClick, enabled }: MapClickHandlerProps) => {
+  useMapEvents({
+    click: (e) => {
+      if (enabled) {
+        onMapClick(e.latlng.lat, e.latlng.lng);
+      }
+    },
+  });
+  return null;
 };
 
 const MapPage = () => {
@@ -61,13 +77,13 @@ const MapPage = () => {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (user?.latitude && user?.longitude) setMapCenter([user.latitude, user.longitude]); }, [user]);
 
-  const handleMapClick = useCallback(async (e: { latlng: { lat: number; lng: number } }) => {
+  const handleMapClick = useCallback(async (lat: number, lng: number) => {
     if (!user || !isSettingLocation) return;
     
     setLoading(true);
     const result = await updateProfile({
-      latitude: parseFloat(e.latlng.lat.toFixed(7)),
-      longitude: parseFloat(e.latlng.lng.toFixed(7)),
+      latitude: parseFloat(lat.toFixed(7)),
+      longitude: parseFloat(lng.toFixed(7)),
       has_power: user.has_power ?? false,
     });
     
@@ -158,11 +174,15 @@ const MapPage = () => {
             center={mapCenter}
             zoom={14}
             className="map"
-            eventHandlers={{ click: handleMapClick }}
           >
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='© OpenStreetMap'
+            />
+            
+            <MapClickHandler
+              onMapClick={handleMapClick}
+              enabled={isSettingLocation && !!user}
             />
             
             {lights.map((light, index) => (
