@@ -145,9 +145,11 @@ const MapPage = () => {
       const uniqueLocations = new Map<string, { users: LightPoint[]; lat: number; lon: number }>();
       
       for (const light of lightsData) {
-        const key = `${light.latitude.toFixed(5)}_${light.longitude.toFixed(5)}`;
+        const lat = Number(light.latitude);
+        const lon = Number(light.longitude);
+        const key = `${lat.toFixed(5)}_${lon.toFixed(5)}`;
         if (!uniqueLocations.has(key)) {
-          uniqueLocations.set(key, { users: [], lat: light.latitude, lon: light.longitude });
+          uniqueLocations.set(key, { users: [], lat, lon });
         }
         uniqueLocations.get(key)!.users.push(light);
       }
@@ -168,7 +170,9 @@ const MapPage = () => {
       const nbrMap = new Map<string, NeighborhoodZone>();
 
       for (const light of lightsData) {
-        const key = `${light.latitude.toFixed(5)}_${light.longitude.toFixed(5)}`;
+        const lat = Number(light.latitude);
+        const lon = Number(light.longitude);
+        const key = `${lat.toFixed(5)}_${lon.toFixed(5)}`;
         const geocoded = geocodedResults.get(key);
         
         const province = geocoded?.state || geocoded?.city || 'Cuba';
@@ -228,10 +232,10 @@ const MapPage = () => {
           muniZone.totalUsers++;
           muniZone.totalWithoutPower++;
         }
-        nbrZone.avgLat += light.latitude;
-        nbrZone.avgLon += light.longitude;
-        provinceZone.avgLat += light.latitude;
-        provinceZone.avgLon += light.longitude;
+        nbrZone.avgLat += lat;
+        nbrZone.avgLon += lon;
+        provinceZone.avgLat += lat;
+        provinceZone.avgLon += lon;
       }
 
       const provinces: ProvinceZone[] = Array.from(provinceMap.values()).map(p => ({
