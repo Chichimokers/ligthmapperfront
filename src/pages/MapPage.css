@@ -458,7 +458,7 @@
   top: 0;
   right: 0;
   width: 100%;
-  max-width: 380px;
+  max-width: 480px;
   height: 100%;
   background: white;
   z-index: 1003;
@@ -531,33 +531,34 @@
   color: var(--dark);
 }
 
-.geocoding-loading {
-  text-align: center;
-  padding: 20px;
-}
-
-.loading-spinner {
-  font-size: 2rem;
-  animation: pulse 1s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.geocoding-loading p {
-  margin: 12px 0 4px;
-  color: var(--gray);
-}
-
-.geocoding-loading small {
-  color: var(--gray);
-  font-size: 0.8rem;
-}
-
 .stat-with { color: var(--success); }
 .stat-without { color: var(--danger); }
+
+.geocoding-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #eff6ff;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  color: #1d4ed8;
+}
+
+.pulse-dot {
+  width: 10px;
+  height: 10px;
+  background: #3b82f6;
+  border-radius: 50%;
+  animation: pulse-animation 1.5s infinite;
+}
+
+@keyframes pulse-animation {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+  100% { opacity: 1; transform: scale(1); }
+}
 
 .zone-hierarchy {
   flex: 1;
@@ -779,6 +780,6 @@
 
 @media (min-width: 768px) {
   .admin-sidebar {
-    max-width: 400px;
+    max-width: 500px;
   }
 }

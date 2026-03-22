@@ -59,14 +59,14 @@ const formatTimeAgo = (dateString: string): string => {
   return `${Math.floor(hours / 24)} días`;
 };
 
-const MapController = ({ center }: { center: [number, number] }) => {
+const MapController = ({ center, zoom }: { center: [number, number]; zoom?: number }) => {
   const map = useMap();
   
   useEffect(() => {
     if (center) {
-      map.flyTo(center, 16, { duration: 1 });
+      map.flyTo(center, zoom || 14, { duration: 1 });
     }
-  }, [center, map]);
+  }, [center, map, zoom]);
   
   return null;
 };
@@ -102,8 +102,9 @@ const MapPage = () => {
   const [hierarchicalZones, setHierarchicalZones] = useState<ProvinceZone[]>([]);
   const [expandedProvinces, setExpandedProvinces] = useState<Set<string>>(new Set());
   const [expandedMunicipalities, setExpandedMunicipalities] = useState<Set<string>>(new Set());
-  const [geocodingLoading, setGeocodingLoading] = useState(false);
   const [geocodingProgress, setGeocodingProgress] = useState({ current: 0, total: 0 });
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [targetZoom, setTargetZoom] = useState<number>(14);
 
   const loadLights = useCallback(async () => {
     try {
@@ -138,7 +139,7 @@ const MapPage = () => {
       return;
     }
 
-    setGeocodingLoading(true);
+    setIsGeocoding(true);
     setGeocodingProgress({ current: 0, total: lightsData.length });
 
     try {
@@ -283,19 +284,25 @@ const MapPage = () => {
     } catch (error) {
       console.error('Error building hierarchical stats:', error);
     } finally {
-      setGeocodingLoading(false);
+      setIsGeocoding(false);
     }
   }, [user, geocodeMultiple]);
 
-  const zoomToZone = useCallback((zoneUsers: LightPoint[]) => {
+  const zoomToZone = useCallback((zoneUsers: LightPoint[], level: 'province' | 'municipality' | 'neighborhood' = 'neighborhood') => {
     if (zoneUsers.length === 0) return;
     
-    const avgLat = zoneUsers.reduce((sum, u) => sum + u.latitude, 0) / zoneUsers.length;
-    const avgLon = zoneUsers.reduce((sum, u) => sum + u.longitude, 0) / zoneUsers.length;
+    const lats = zoneUsers.map(u => Number(u.latitude));
+    const lons = zoneUsers.map(u => Number(u.longitude));
+    
+    const avgLat = lats.reduce((sum, lat) => sum + lat, 0) / lats.length;
+    const avgLon = lons.reduce((sum, lon) => sum + lon, 0) / lons.length;
+    
+    const zoomLevel = level === 'province' ? 10 : level === 'municipality' ? 13 : 16;
     
     setMapCenter([avgLat, avgLon]);
-    setMessage(`📍 ${zoneUsers.length} usuarios en esta zona`);
-    setTimeout(() => setMessage(null), 3000);
+    setTargetZoom(zoomLevel);
+    setMessage(`📍 ${zoneUsers.length} usuario${zoneUsers.length > 1 ? 's' : ''} en esta zona`);
+    setTimeout(() => setMessage(null), 2000);
   }, []);
 
   const toggleProvince = useCallback((provinceName: string) => {
@@ -492,7 +499,7 @@ const MapPage = () => {
               attribution='© OpenStreetMap'
             />
             
-            <MapController center={mapCenter} />
+            <MapController center={mapCenter} zoom={targetZoom} />
             
             <MapClickHandler
               onMapClick={handleMapClick}
@@ -588,85 +595,102 @@ const MapPage = () => {
             <div className="sidebar-section sidebar-section-zones">
               <h3>📍 Zonas por Provincia</h3>
               
-              {geocodingLoading ? (
-                <div className="geocoding-loading">
-                  <div className="loading-spinner">⏳</div>
-                  <p>Cargando ubicaciones...</p>
-                  <small>{geocodingProgress.current}/{geocodingProgress.total}</small>
+              {isGeocoding && (
+                <div className="geocoding-indicator">
+                  <span className="pulse-dot"></span>
+                  <small>Obteniendo ubicaciones... {geocodingProgress.current}/{geocodingProgress.total}</small>
                 </div>
-              ) : hierarchicalZones.length > 0 ? (
-                <div className="zone-hierarchy">
-                  {hierarchicalZones.map((province) => (
-                    <div key={province.name} className="province-item">
-                      <div 
-                        className="province-header"
-                        onClick={() => toggleProvince(province.name)}
-                      >
-                        <span className="expand-icon">
-                          {expandedProvinces.has(province.name) ? '▼' : '▶'}
-                        </span>
-                        <span className="province-name">{province.name}</span>
-                        <span className="province-stats">
-                          <span className="stat-with">💡{province.totalUsers - province.totalWithoutPower}</span>
-                          <span className="stat-without">🔌{province.totalWithoutPower}</span>
-                        </span>
-                      </div>
-                      
-                      {expandedProvinces.has(province.name) && (
-                        <div className="municipalities-list">
-                          {province.municipalities.map((muni) => {
-                            const muniKey = `${province.name}__${muni.name}`;
-                            return (
-                              <div key={muni.name} className="municipality-item">
-                                <div 
-                                  className="municipality-header"
-                                  onClick={() => toggleMunicipality(province.name, muni.name)}
-                                >
-                                  <span className="expand-icon small">
-                                    {expandedMunicipalities.has(muniKey) ? '▼' : '▶'}
-                                  </span>
-                                  <span className="municipality-name">{muni.name}</span>
-                                  <span className="muni-stats">
-                                    <span className="stat-with">💡{muni.totalUsers - muni.totalWithoutPower}</span>
-                                    <span className="stat-without">🔌{muni.totalWithoutPower}</span>
-                                  </span>
-                                </div>
-                                
-                                {expandedMunicipalities.has(muniKey) && (
-                                  <div className="neighborhoods-list">
-                                    {muni.neighborhoods.map((nbr) => (
-                                      <div 
-                                        key={nbr.name}
-                                        className="neighborhood-item"
-                                        onClick={() => zoomToZone(nbr.users)}
-                                        title="Clic para ver en mapa"
-                                      >
-                                        <span className="neighborhood-name">{nbr.name}</span>
-                                        <span className="nbr-stats">
-                                          <span className="stat-with">💡{nbr.withPower}</span>
-                                          <span className="stat-without">🔌{nbr.withoutPower}</span>
-                                        </span>
-                                        <div className="mini-bar-container">
-                                          <div 
-                                            className={`mini-bar ${nbr.withoutPower > nbr.withPower ? 'danger' : 'success'}`}
-                                            style={{ width: `${nbr.users.length > 0 ? (nbr.withoutPower / nbr.users.length) * 100 : 0}%` }}
-                                          />
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="no-data">No hay datos disponibles</p>
               )}
+              
+              {hierarchicalZones.length > 0 ? (
+                <div className="zone-hierarchy">
+                  {hierarchicalZones.map((province) => {
+                    const allProvinceUsers = province.municipalities.flatMap(m => 
+                      m.neighborhoods.flatMap(n => n.users)
+                    );
+                    return (
+                      <div key={province.name} className="province-item">
+                        <div 
+                          className="province-header"
+                          onClick={() => {
+                            toggleProvince(province.name);
+                            if (allProvinceUsers.length > 0) {
+                              zoomToZone(allProvinceUsers, 'province');
+                            }
+                          }}
+                        >
+                          <span className="expand-icon">
+                            {expandedProvinces.has(province.name) ? '▼' : '▶'}
+                          </span>
+                          <span className="province-name">{province.name}</span>
+                          <span className="province-stats">
+                            <span className="stat-with">💡{province.totalUsers - province.totalWithoutPower}</span>
+                            <span className="stat-without">🔌{province.totalWithoutPower}</span>
+                          </span>
+                        </div>
+                        
+                        {expandedProvinces.has(province.name) && (
+                          <div className="municipalities-list">
+                            {province.municipalities.map((muni) => {
+                              const muniKey = `${province.name}__${muni.name}`;
+                              const allMuniUsers = muni.neighborhoods.flatMap(n => n.users);
+                              return (
+                                <div key={muni.name} className="municipality-item">
+                                  <div 
+                                    className="municipality-header"
+                                    onClick={() => {
+                                      toggleMunicipality(province.name, muni.name);
+                                      if (allMuniUsers.length > 0) {
+                                        zoomToZone(allMuniUsers, 'municipality');
+                                      }
+                                    }}
+                                  >
+                                    <span className="expand-icon small">
+                                      {expandedMunicipalities.has(muniKey) ? '▼' : '▶'}
+                                    </span>
+                                    <span className="municipality-name">{muni.name}</span>
+                                    <span className="muni-stats">
+                                      <span className="stat-with">💡{muni.totalUsers - muni.totalWithoutPower}</span>
+                                      <span className="stat-without">🔌{muni.totalWithoutPower}</span>
+                                    </span>
+                                  </div>
+                                  
+                                  {expandedMunicipalities.has(muniKey) && (
+                                    <div className="neighborhoods-list">
+                                      {muni.neighborhoods.map((nbr) => (
+                                        <div 
+                                          key={nbr.name}
+                                          className="neighborhood-item"
+                                          onClick={() => zoomToZone(nbr.users, 'neighborhood')}
+                                          title="Clic para ver en mapa"
+                                        >
+                                          <span className="neighborhood-name">{nbr.name}</span>
+                                          <span className="nbr-stats">
+                                            <span className="stat-with">💡{nbr.withPower}</span>
+                                            <span className="stat-without">🔌{nbr.withoutPower}</span>
+                                          </span>
+                                          <div className="mini-bar-container">
+                                            <div 
+                                              className={`mini-bar ${nbr.withoutPower > nbr.withPower ? 'danger' : 'success'}`}
+                                              style={{ width: `${nbr.users.length > 0 ? (nbr.withoutPower / nbr.users.length) * 100 : 0}%` }}
+                                            />
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : !isGeocoding ? (
+                <p className="no-data">No hay datos disponibles</p>
+              ) : null}
             </div>
             
             <div className="sidebar-section">

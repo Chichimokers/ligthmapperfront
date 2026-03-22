@@ -9,6 +9,8 @@ export interface GeocodingResult {
   city?: string;
   town?: string;
   village?: string;
+  neighbourhood?: string;
+  city_district?: string;
   county?: string;
   municipality?: string;
   state?: string;
@@ -22,10 +24,37 @@ interface CacheEntry {
 }
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
-const RATE_LIMIT_DELAY = 1100;
+const RATE_LIMIT_DELAY = 2000;
+const SESSION_CACHE_KEY = 'lightmapper_geocoding_cache';
 
 const geocodingCache = new Map<string, CacheEntry>();
 let lastRequestTime = 0;
+
+const loadCacheFromSession = () => {
+  try {
+    const cached = sessionStorage.getItem(SESSION_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      for (const [key, value] of Object.entries(parsed)) {
+        geocodingCache.set(key, value as CacheEntry);
+      }
+      console.log('📦 Loaded geocoding cache from session:', geocodingCache.size, 'entries');
+    }
+  } catch {
+    console.warn('Failed to load geocoding cache from session');
+  }
+};
+
+const saveCacheToSession = () => {
+  try {
+    const obj = Object.fromEntries(geocodingCache);
+    sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(obj));
+  } catch {
+    console.warn('Failed to save geocoding cache to session');
+  }
+};
+
+loadCacheFromSession();
 
 const getCacheKey = (lat: number, lon: number): string => {
   return `${lat.toFixed(5)},${lon.toFixed(5)}`;
@@ -109,6 +138,8 @@ export const reverseGeocode = async (lat: number, lon: number): Promise<Geocodin
       road: data.address?.road,
       suburb: data.address?.suburb,
       district: data.address?.city_district,
+      neighbourhood: data.address?.neighbourhood,
+      city_district: data.address?.city_district,
       city: data.address?.city,
       town: data.address?.town,
       village: data.address?.village,
@@ -121,6 +152,7 @@ export const reverseGeocode = async (lat: number, lon: number): Promise<Geocodin
 
     console.log('✅ Geocoding result:', result.displayName);
     geocodingCache.set(cacheKey, { result, timestamp: Date.now() });
+    saveCacheToSession();
     
     return result;
   } catch (error) {
