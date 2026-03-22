@@ -58,8 +58,11 @@ export const reverseGeocode = async (lat: number, lon: number): Promise<Geocodin
   
   const cached = geocodingCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    console.log('📦 Cache hit for', cacheKey);
     return cached.result;
   }
+
+  console.log('🌐 Making geocoding request for', lat, lon);
 
   const now = Date.now();
   const timeSinceLastRequest = now - lastRequestTime;
@@ -71,6 +74,8 @@ export const reverseGeocode = async (lat: number, lon: number): Promise<Geocodin
 
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
+    
+    console.log('📡 Fetching:', url);
     
     const response = await fetch(url, {
       headers: {
@@ -102,11 +107,12 @@ export const reverseGeocode = async (lat: number, lon: number): Promise<Geocodin
       displayName: location.fullName
     };
 
+    console.log('✅ Geocoding result:', result.displayName);
     geocodingCache.set(cacheKey, { result, timestamp: Date.now() });
     
     return result;
   } catch (error) {
-    console.warn('Geocoding failed:', error);
+    console.error('❌ Geocoding failed:', error);
     return null;
   }
 };
@@ -138,6 +144,7 @@ export const useReverseGeocoding = () => {
     locations: Array<{ lat: number; lon: number; id: number | string }>,
     onProgress?: (progress: number, total: number) => void
   ): Promise<Map<string | number, GeocodingResult>> => {
+    console.log('📍 geocodeMultiple called with', locations.length, 'locations');
     const results = new Map<string | number, GeocodingResult>();
     const uniqueCoords = new Map<string, typeof locations[0]>();
 
@@ -149,6 +156,7 @@ export const useReverseGeocoding = () => {
     }
 
     const uniqueLocations = Array.from(uniqueCoords.values());
+    console.log('🗺️ Unique locations to geocode:', uniqueLocations.length);
     let processed = 0;
 
     for (const loc of uniqueLocations) {
@@ -171,6 +179,7 @@ export const useReverseGeocoding = () => {
       onProgress?.(processed, uniqueLocations.length);
     }
 
+    console.log('✅ geocodeMultiple complete, results:', results.size);
     return results;
   }, []);
 

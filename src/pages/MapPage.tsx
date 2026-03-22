@@ -110,7 +110,17 @@ const MapPage = () => {
   };
 
   const buildZoneStats = useCallback(async (lightsData: LightPoint[]) => {
-    if (!user?.role === 'admin' || lightsData.length === 0) {
+    console.log('🔍 buildZoneStats called', { 
+      userRole: user?.role, 
+      lightsCount: lightsData.length,
+      isAdmin: user?.role === 'admin'
+    });
+    
+    if (user?.role !== 'admin' || lightsData.length === 0) {
+      console.log('❌ buildZoneStats early return', { 
+        roleCheck: user?.role !== 'admin', 
+        emptyLights: lightsData.length === 0 
+      });
       setZoneStats([]);
       return;
     }
@@ -231,7 +241,9 @@ const MapPage = () => {
 
   // Build zone stats when sidebar is open and lights change
   useEffect(() => {
+    console.log('🔄 useEffect triggered', { showSidebar, userRole: user?.role, lightsCount: lights.length });
     if (showSidebar && user?.role === 'admin' && lights.length > 0) {
+      console.log('✅ Calling buildZoneStats');
       buildZoneStats(lights);
     }
   }, [showSidebar, lights, user, buildZoneStats]);
