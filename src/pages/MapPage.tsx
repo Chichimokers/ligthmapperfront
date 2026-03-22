@@ -242,7 +242,13 @@ const MapPage = () => {
             <div className="setup-card">
               <p>📍 Configura tu ubicación para reportar</p>
               <button
-                onClick={() => setIsSettingLocation(true)}
+                onClick={() => {
+                  if (!user) {
+                    setShowLoginModal(true);
+                  } else {
+                    setIsSettingLocation(true);
+                  }
+                }}
                 className="btn-setup"
               >
                 Seleccionar en mapa

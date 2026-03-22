@@ -26,6 +26,9 @@ jobs:
         run: npm run lint
 
       - name: 🏗️ Build for production
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
         run: npm run build
 
       - name: 📤 Upload dist artifact

@@ -3,5 +3,6 @@ dist
 dist-ssr
 *.local
 .env
-.env.local
-.env.production.local
+.env.*
+!.env.example
+!.env.production
