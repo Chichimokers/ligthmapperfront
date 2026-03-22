@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import { useAuth } from '../hooks/useAuth';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import api from '../services/api';
@@ -8,7 +8,7 @@ import './MapPage.css';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const DEFAULT_LOCATION: [number, number] = [23.1136, -82.3666];
-const POLLING_INTERVAL = 30000;
+const POLLING_INTERVAL = 5000;
 
 interface LightPoint {
   latitude: number;
@@ -27,6 +27,18 @@ const formatTimeAgo = (dateString: string): string => {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours} h`;
   return `${Math.floor(hours / 24)} días`;
+};
+
+const MapController = ({ center }: { center: [number, number] }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (center) {
+      map.flyTo(center, 16, { duration: 1 });
+    }
+  }, [center, map]);
+  
+  return null;
 };
 
 interface MapClickHandlerProps {
@@ -54,6 +66,7 @@ const MapPage = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [refreshLoading, setRefreshLoading] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
 
   const loadLights = useCallback(async () => {
@@ -64,6 +77,12 @@ const MapPage = () => {
       console.error('Error cargando luces:', error);
     }
   }, []);
+
+  const refreshLights = async () => {
+    setRefreshLoading(true);
+    await loadLights();
+    setRefreshLoading(false);
+  };
 
   // Polling para actualizar puntos en tiempo real
   useEffect(() => {
@@ -217,6 +236,8 @@ const MapPage = () => {
               attribution='© OpenStreetMap'
             />
             
+            <MapController center={mapCenter} />
+            
             <MapClickHandler
               onMapClick={handleMapClick}
               enabled={isSettingLocation && !!user}
@@ -270,6 +291,15 @@ const MapPage = () => {
             title="Ir a mi ubicación"
           >
             {gpsLoading ? '⏳' : '📍'}
+          </button>
+          
+          <button 
+            className="refresh-button" 
+            onClick={refreshLights}
+            disabled={refreshLoading}
+            title="Actualizar puntos"
+          >
+            {refreshLoading ? '⏳' : '🔄'}
           </button>
         </div>
 

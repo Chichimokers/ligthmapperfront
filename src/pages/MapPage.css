@@ -150,6 +150,38 @@
   cursor: not-allowed;
 }
 
+.refresh-button {
+  position: absolute;
+  top: 72px;
+  right: 16px;
+  z-index: 1000;
+  background: var(--white);
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+.refresh-button:hover {
+  transform: scale(1.1);
+}
+
+.refresh-button:active {
+  transform: scale(0.95);
+}
+
+.refresh-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .popup-content {
   text-align: center;
 }
