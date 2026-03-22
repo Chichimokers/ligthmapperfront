@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useState, useEffect, createContext, useContext, useCallback } from 'react';
 import api from '../services/api';
 
@@ -87,3 +88,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+

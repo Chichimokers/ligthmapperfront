@@ -36,47 +36,43 @@ const MapPage = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadLights();
-    getUserLocation();
-  }, []);
-
-  useEffect(() => {
-    if (user?.latitude && user?.longitude && !mapCenter) {
-      setMapCenter([user.latitude, user.longitude]);
-    }
-  }, [user]);
-
-  const loadLights = async () => {
+  const loadLights = useCallback(async () => {
     try {
       const response = await api.get('/api/v1/users/lights/');
       setLights(response.data);
     } catch (error) {
       console.error('Error cargando luces:', error);
     }
-  };
+  }, []);
 
-  const getUserLocation = () => {
+  const getUserLocation = useCallback(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          if (!mapCenter) {
-            setMapCenter([
-              position.coords.latitude,
-              position.coords.longitude
-            ]);
-          }
+          setMapCenter((prev) => prev || [
+            position.coords.latitude,
+            position.coords.longitude
+          ]);
         },
         () => {
-          if (!mapCenter) {
-            setMapCenter([23.1136, -82.3666]);
-          }
+          setMapCenter((prev) => prev || [23.1136, -82.3666]);
         }
       );
-    } else if (!mapCenter) {
-      setMapCenter([23.1136, -82.3666]);
+    } else {
+      setMapCenter((prev) => prev || [23.1136, -82.3666]);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadLights();
+    getUserLocation();
+  }, [loadLights, getUserLocation]);
+
+  useEffect(() => {
+    if (user?.latitude && user?.longitude) {
+      setMapCenter((prev) => prev || [user.latitude, user.longitude]);
+    }
+  }, [user]);
 
   const handleMapClick = useCallback(async (e: { latlng: { lat: number; lng: number } }) => {
     if (!user || !isSettingLocation) return;
@@ -94,7 +90,7 @@ const MapPage = () => {
       loadLights();
     }
     setLoading(false);
-  }, [user, isSettingLocation, updateProfile]);
+  }, [user, isSettingLocation, updateProfile, loadLights]);
 
   const togglePower = async () => {
     if (!user) {
