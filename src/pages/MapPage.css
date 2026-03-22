@@ -72,6 +72,7 @@
 
 .stat-icon.green { color: var(--success); }
 .stat-icon.red { color: var(--danger); }
+.stat-icon.blue { color: var(--primary); }
 
 .stat-value {
   font-weight: 700;
@@ -115,6 +116,38 @@
 .leaflet-container {
   height: 100%;
   width: 100%;
+}
+
+.gps-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  background: var(--white);
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+.gps-button:hover {
+  transform: scale(1.1);
+}
+
+.gps-button:active {
+  transform: scale(0.95);
+}
+
+.gps-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .popup-content {

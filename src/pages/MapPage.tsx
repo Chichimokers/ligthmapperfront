@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents } from 'react-leaflet';
 import { useAuth } from '../hooks/useAuth';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
@@ -8,6 +8,7 @@ import './MapPage.css';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const DEFAULT_LOCATION: [number, number] = [23.1136, -82.3666];
+const POLLING_INTERVAL = 30000;
 
 interface LightPoint {
   latitude: number;
@@ -52,6 +53,8 @@ const MapPage = () => {
   const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_LOCATION);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const mapRef = useRef<L.Map | null>(null);
 
   const loadLights = useCallback(async () => {
     try {
@@ -62,8 +65,12 @@ const MapPage = () => {
     }
   }, []);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadLights(); }, [loadLights]);
+  // Polling para actualizar puntos en tiempo real
+  useEffect(() => {
+    loadLights();
+    const interval = setInterval(loadLights, POLLING_INTERVAL);
+    return () => clearInterval(interval);
+  }, [loadLights]);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -74,7 +81,6 @@ const MapPage = () => {
     }
   }, []);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (user?.latitude && user?.longitude) setMapCenter([user.latitude, user.longitude]); }, [user]);
 
   const handleMapClick = useCallback(async (lat: number, lng: number) => {
@@ -128,6 +134,31 @@ const MapPage = () => {
     }
   };
 
+  const goToGpsLocation = () => {
+    if (!navigator.geolocation) {
+      setMessage('GPS no disponible');
+      setTimeout(() => setMessage(null), 3000);
+      return;
+    }
+    
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const newCenter: [number, number] = [position.coords.latitude, position.coords.longitude];
+        setMapCenter(newCenter);
+        setGpsLoading(false);
+        setMessage('📍 Ubicación actualizada');
+        setTimeout(() => setMessage(null), 2000);
+      },
+      () => {
+        setGpsLoading(false);
+        setMessage('Error al obtener GPS');
+        setTimeout(() => setMessage(null), 3000);
+      },
+      { enableHighAccuracy: true }
+    );
+  };
+
   const stats = {
     withPower: lights.filter(l => l.has_power).length,
     withoutPower: lights.filter(l => !l.has_power).length,
@@ -163,6 +194,11 @@ const MapPage = () => {
             <span className="stat-value">{stats.withoutPower}</span>
             <span className="stat-label">Sin luz</span>
           </div>
+          <div className="stat">
+            <span className="stat-icon blue">●</span>
+            <span className="stat-value">{lights.length}</span>
+            <span className="stat-label">Total</span>
+          </div>
         </div>
 
         {message && (
@@ -174,6 +210,7 @@ const MapPage = () => {
             center={mapCenter}
             zoom={14}
             className="map"
+            ref={mapRef as unknown as React.Ref<L.Map>}
           >
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -225,6 +262,15 @@ const MapPage = () => {
               </CircleMarker>
             )}
           </MapContainer>
+          
+          <button 
+            className="gps-button" 
+            onClick={goToGpsLocation}
+            disabled={gpsLoading}
+            title="Ir a mi ubicación"
+          >
+            {gpsLoading ? '⏳' : '📍'}
+          </button>
         </div>
 
         {user && isSettingLocation && (
