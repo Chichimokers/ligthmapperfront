@@ -7,6 +7,7 @@ import 'leaflet/dist/leaflet.css';
 import './MapPage.css';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const DEFAULT_LOCATION: [number, number] = [23.1136, -82.3666];
 
 interface LightPoint {
   latitude: number;
@@ -32,7 +33,7 @@ const MapPage = () => {
   const [lights, setLights] = useState<LightPoint[]>([]);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [isSettingLocation, setIsSettingLocation] = useState(false);
-  const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
+  const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_LOCATION);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -45,34 +46,20 @@ const MapPage = () => {
     }
   }, []);
 
-  const getUserLocation = useCallback(() => {
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadLights(); }, [loadLights]);
+
+  useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setMapCenter((prev) => prev || [
-            position.coords.latitude,
-            position.coords.longitude
-          ]);
-        },
-        () => {
-          setMapCenter((prev) => prev || [23.1136, -82.3666]);
-        }
+        (position) => setMapCenter([position.coords.latitude, position.coords.longitude]),
+        () => {}
       );
-    } else {
-      setMapCenter((prev) => prev || [23.1136, -82.3666]);
     }
   }, []);
 
-  useEffect(() => {
-    loadLights();
-    getUserLocation();
-  }, [loadLights, getUserLocation]);
-
-  useEffect(() => {
-    if (user?.latitude && user?.longitude) {
-      setMapCenter((prev) => prev || [user.latitude, user.longitude]);
-    }
-  }, [user]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (user?.latitude && user?.longitude) setMapCenter([user.latitude, user.longitude]); }, [user]);
 
   const handleMapClick = useCallback(async (e: { latlng: { lat: number; lng: number } }) => {
     if (!user || !isSettingLocation) return;
@@ -167,59 +154,57 @@ const MapPage = () => {
         )}
 
         <div className="map-container">
-          {mapCenter && (
-            <MapContainer
-              center={mapCenter}
-              zoom={14}
-              className="map"
-              eventHandlers={{ click: handleMapClick }}
-            >
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='© OpenStreetMap'
-              />
-              
-              {lights.map((light, index) => (
-                <CircleMarker
-                  key={index}
-                  center={[light.latitude, light.longitude]}
-                  pathOptions={{
-                    color: light.has_power ? '#22c55e' : '#ef4444',
-                    fillColor: light.has_power ? '#22c55e' : '#ef4444',
-                    fillOpacity: 0.7,
-                  }}
-                  radius={12}
-                >
-                  <Popup>
-                    <div className="popup-content">
-                      <strong>{light.has_power ? '💡 Con Luz' : '🔌 Sin Luz'}</strong>
-                      <small>Hace {formatTimeAgo(light.last_power_update)}</small>
-                    </div>
-                  </Popup>
-                </CircleMarker>
-              ))}
+          <MapContainer
+            center={mapCenter}
+            zoom={14}
+            className="map"
+            eventHandlers={{ click: handleMapClick }}
+          >
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='© OpenStreetMap'
+            />
+            
+            {lights.map((light, index) => (
+              <CircleMarker
+                key={index}
+                center={[light.latitude, light.longitude]}
+                pathOptions={{
+                  color: light.has_power ? '#22c55e' : '#ef4444',
+                  fillColor: light.has_power ? '#22c55e' : '#ef4444',
+                  fillOpacity: 0.7,
+                }}
+                radius={12}
+              >
+                <Popup>
+                  <div className="popup-content">
+                    <strong>{light.has_power ? '💡 Con Luz' : '🔌 Sin Luz'}</strong>
+                    <small>Hace {formatTimeAgo(light.last_power_update)}</small>
+                  </div>
+                </Popup>
+              </CircleMarker>
+            ))}
 
-              {user?.latitude && user?.longitude && (
-                <CircleMarker
-                  center={[user.latitude, user.longitude]}
-                  pathOptions={{
-                    color: '#3b82f6',
-                    fillColor: '#3b82f6',
-                    fillOpacity: 0.9,
-                  }}
-                  radius={15}
-                >
-                  <Popup>
-                    <div className="popup-content">
-                      <strong>📍 Tu ubicación</strong>
-                      <br />
-                      <span>{user.has_power ? '💡 Tienes luz' : '🔌 Sin luz'}</span>
-                    </div>
-                  </Popup>
-                </CircleMarker>
-              )}
-            </MapContainer>
-          )}
+            {user?.latitude && user?.longitude && (
+              <CircleMarker
+                center={[user.latitude, user.longitude]}
+                pathOptions={{
+                  color: '#3b82f6',
+                  fillColor: '#3b82f6',
+                  fillOpacity: 0.9,
+                }}
+                radius={15}
+              >
+                <Popup>
+                  <div className="popup-content">
+                    <strong>📍 Tu ubicación</strong>
+                    <br />
+                    <span>{user.has_power ? '💡 Tienes luz' : '🔌 Sin luz'}</span>
+                  </div>
+                </Popup>
+              </CircleMarker>
+            )}
+          </MapContainer>
         </div>
 
         {user && isSettingLocation && (
