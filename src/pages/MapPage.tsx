@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import { useAuth } from '../hooks/useAuth';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
@@ -67,7 +67,6 @@ const MapPage = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [refreshLoading, setRefreshLoading] = useState(false);
-  const mapRef = useRef<L.Map | null>(null);
 
   const loadLights = useCallback(async () => {
     try {
@@ -99,8 +98,6 @@ const MapPage = () => {
       );
     }
   }, []);
-
-  useEffect(() => { if (user?.latitude && user?.longitude) setMapCenter([user.latitude, user.longitude]); }, [user]);
 
   const handleMapClick = useCallback(async (lat: number, lng: number) => {
     if (!user || !isSettingLocation) return;
@@ -143,6 +140,17 @@ const MapPage = () => {
     }
     setLoading(false);
     setTimeout(() => setMessage(null), 3000);
+  };
+
+  const goToMyHome = () => {
+    if (user?.latitude && user?.longitude) {
+      setMapCenter([user.latitude, user.longitude]);
+      setMessage('🏠 Yendo a tu vivienda');
+      setTimeout(() => setMessage(null), 2000);
+    } else {
+      setMessage('No tienes ubicación configurada');
+      setTimeout(() => setMessage(null), 3000);
+    }
   };
 
   const handleGoogleSuccess = async (response: { credential: string }) => {
@@ -229,7 +237,6 @@ const MapPage = () => {
             center={mapCenter}
             zoom={14}
             className="map"
-            ref={mapRef as unknown as React.Ref<L.Map>}
           >
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -288,7 +295,7 @@ const MapPage = () => {
             className="gps-button" 
             onClick={goToGpsLocation}
             disabled={gpsLoading}
-            title="Ir a mi ubicación"
+            title="Ir a mi ubicación GPS"
           >
             {gpsLoading ? '⏳' : '📍'}
           </button>
@@ -326,13 +333,15 @@ const MapPage = () => {
                   {user.has_power ? 'Tienes luz' : 'Sin luz'}
                 </span>
               </div>
-              <button
-                onClick={togglePower}
-                className={`btn-power ${user.has_power ? 'off' : 'on'}`}
-                disabled={loading}
-              >
-                {loading ? '...' : user.has_power ? 'Apagar' : 'Encender'}
-              </button>
+              <div className="power-actions">
+                <button
+                  onClick={togglePower}
+                  className={`btn-power ${user.has_power ? 'off' : 'on'}`}
+                  disabled={loading}
+                >
+                  {loading ? '...' : user.has_power ? 'Apagar' : 'Encender'}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="setup-card">
@@ -351,6 +360,28 @@ const MapPage = () => {
               </button>
             </div>
           )}
+          
+          <div className="location-actions">
+            <button 
+              className="btn-location-action"
+              onClick={goToMyHome}
+              disabled={!user?.latitude || !user?.longitude}
+            >
+              🏠 Mi Vivienda
+            </button>
+            <button 
+              className="btn-location-action secondary"
+              onClick={() => {
+                if (!user) {
+                  setShowLoginModal(true);
+                } else {
+                  setIsSettingLocation(true);
+                }
+              }}
+            >
+              📍 Cambiar Ubicación
+            </button>
+          </div>
         </div>
 
         {showLoginModal && (
